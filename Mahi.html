@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive World Map: Clean, Dirty, and Salty Water</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        /* General Styles */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+
+        header, footer {
+            background-color: #0288d1;
+            color: white;
+            padding: 20px 0;
+            text-align: center;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 2.5em;
+        }
+
+        #map {
+            width: 100%;
+            height: 600px;
+            margin: 20px 0;
+            border: 2px solid #0288d1;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .legend {
+            background: white;
+            line-height: 1.5em;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            z-index: 1000;
+        }
+
+        .legend i {
+            width: 18px;
+            height: 18px;
+            float: left;
+            margin-right: 8px;
+            opacity: 0.7;
+            border-radius: 50%;
+        }
+
+        #infoPanel {
+            position: absolute;
+            bottom: 100px;
+            left: 30px;
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            z-index: 1000;
+            display: none; /* Hidden by default */
+        }
+
+        #search {
+            width: 300px;
+            padding: 10px;
+            margin: 20px 0;
+            border: 1px solid #0288d1;
+            border-radius: 5px;
+            font-size: 1em;
+        }
+
+        #loading {
+            display: none;
+            text-align: center;
+            padding: 10px;
+            background-color: #fff;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+        }
+
+        #instructions {
+            padding: 20px;
+            background-color: #fff;
+            margin: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Interactive World Map: Clean, Dirty, and Salty Water</h1>
+        <input type="text" id="search" placeholder="Search for a country..." onkeyup="searchCountry()">
+    </header>
+
+    <div id="loading">Loading...</div>
+    <div id="map"></div>
+    <div id="infoPanel"></div>
+    <div id="instructions">
+        <h3>How to Use This Map</h3>
+        <p>Click on a marker to view details about the water quality. Use the search bar to find specific countries.</p>
+    </div>
+
+    <div class="legend">
+        <h4>Water Quality Legend</h4>
+        <i style="background: #4CAF50;"></i> Clean Water<br>
+        <i style="background: #F44336;"></i> Dirty Water<br>
+        <i style="background: #FFA500;"></i> Salty Water<br>
+    </div>
+
+    <footer>
+        <p>&copy; 2024 Water Quality Initiative. All rights reserved.</p>
+    </footer>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Initialize the map
+        var map = L.map('map', {
+            center: [20, 0],
+            zoom: 2,
+            maxZoom: 5,
+            minZoom: 2,
+            maxBounds: [[-90, -180], [90, 180]],
+            zoomControl: true
+        });
+
+        // Add OpenStreetMap tile layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors',
+            maxZoom: 19,
+            minZoom: 2
+        }).addTo(map);
+
+        // Show loading indicator
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+        }
+
+        // Hide loading indicator
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        // Function to add a marker with specific water type
+        function addMarker(lat, lon, info, type) {
+            var color;
+            var fullInfo = info; // Initialize with the basic info
+
+            // Append additional info for dirty water markers
+            if (type === 'dirty') {
+                fullInfo += "<br><strong>Impact:</strong> Using dirty water can lead to serious health issues such as cholera, dysentery, and other waterborne diseases.";
+            }
+
+            // Append additional info for salty water markers
+            if (type === 'salty') {
+                fullInfo += "<br><strong>Impact:</strong> High salinity water can lead to dehydration, increased blood pressure, and may harm crops and drinking supplies.";
+            }
+
+            if (type === 'clean') color = '#4CAF50';   // Green for clean water
+            else if (type === 'dirty') color = '#F44336'; // Red for dirty water
+            else color = '#FFA500';                      // Orange for salty water
+
+            var marker = L.circleMarker([lat, lon], {
+                radius: 6,
+                fillColor: color,
+                color: color,
+                weight: 1,
+                opacity: 1,
+                fillOpacity: 0.8
+            }).addTo(map);
+           
+            marker.bindPopup(fullInfo, { closeButton: true }); // Bind a popup to the marker
+        }
+
+        // Define markers for various countries
+        var markers = [
+            // Clean Water Countries
+            {lat: 56.1304, lon: -106.3468, info: 'Clean Water - Canada', type: 'clean'},
+            {lat: 51.1657, lon: 10.4515, info: 'Clean Water - Germany', type: 'clean'},
+            {lat: 51.5074, lon: -0.1278, info: 'Clean Water - United Kingdom', type: 'clean'},
+            {lat: -30.5595, lon: 22.9375, info: 'Clean Water - South Africa', type: 'clean'},
+            {lat: 37.0902, lon: -95.7129, info: 'Clean Water - United States', type: 'clean'},
+            {lat: 46.8182, lon: 8.2275, info: 'Clean Water - Switzerland', type: 'clean'},
+            {lat: 60.1282, lon: 18.6435, info: 'Clean Water - Sweden', type: 'clean'},
+            {lat: 31.0461, lon: 34.8516, info: 'Clean Water - Israel', type: 'clean'},
+            {lat: 35.6895, lon: 139.6917, info: 'Clean Water - Japan', type: 'clean'},
+            {lat: -34.9285, lon: 138.6007, info: 'Clean Water - Australia', type: 'clean'},
+            {lat: 55.3781, lon: -3.4360, info: 'Clean Water - United Kingdom', type: 'clean'},
+            {lat: 45.9432, lon: 24.9668, info: 'Clean Water - Romania', type: 'clean'},
+            {lat: 41.0082, lon: 28.9784, info: 'Clean Water - Turkey', type: 'clean'},
+
+            // Dirty Water Countries
+            {lat: 35.8617, lon: 104.1954, info: 'Dirty Water - China', type: 'dirty'},
+            {lat: -14.2350, lon: -51.9253, info: 'Dirty Water - Brazil', type: 'dirty'},
+            {lat: 20.5937, lon: 78.9629, info: 'Dirty Water - India', type: 'dirty'},
+            {lat: 23.6850, lon: 90.3563, info: 'Dirty Water - Bangladesh', type: 'dirty'},
+            {lat: 4.5709, lon: -74.2973, info: 'Dirty Water - Colombia', type: 'dirty'},
+            {lat: -1.286389, lon: 36.817223, info: 'Dirty Water - Kenya', type: 'dirty'},
+            {lat: -1.9711, lon: 30.1044, info: 'Dirty Water - Uganda', type: 'dirty'},
+            {lat: -9.19, lon: -75.0152, info: 'Dirty Water - Peru', type: 'dirty'},
+            {lat: 8.6753, lon: 85.1240, info: 'Dirty Water - Nigeria', type: 'dirty'},
+            {lat: 15.870032, lon: 100.992541, info: 'Dirty Water - Thailand', type: 'dirty'},
+            {lat: -15.414999, lon: -69.20154, info: 'Dirty Water - Bolivia', type: 'dirty'},
+            {lat: 7.49508, lon: 134.58252, info: 'Dirty Water - Palau', type: 'dirty'},
+            {lat: -3.370417, lon: -72.290993, info: 'Dirty Water - Indonesia', type: 'dirty'},
+
+            // Salty Water Countries
+            {lat: 42.3154, lon: 43.3569, info: 'Salty Water - Georgia', type: 'salty'},
+            {lat: 24.396308, lon: 54.825443, info: 'Salty Water - United Arab Emirates', type: 'salty'},
+            {lat: 36.204824, lon: 138.252924, info: 'Salty Water - Japan', type: 'salty'},
+            {lat: 33.8378, lon: -7.6651, info: 'Salty Water - Morocco', type: 'salty'},
+            {lat: -25.344, lon: 131.0369, info: 'Salty Water - Australia', type: 'salty'},
+            {lat: 17.385044, lon: 78.486671, info: 'Salty Water - India', type: 'salty'},
+            {lat: 4.5709, lon: -74.2973, info: 'Salty Water - Colombia', type: 'salty'},
+            {lat: 6.5244, lon: 3.3792, info: 'Salty Water - Nigeria', type: 'salty'},
+            {lat: -33.4489, lon: -70.6693, info: 'Salty Water - Chile', type: 'salty'},
+            {lat: 12.8797, lon: 121.7740, info: 'Salty Water - Philippines', type: 'salty'},
+            {lat: 25.7617, lon: -80.1918, info: 'Salty Water - United States', type: 'salty'},
+            {lat: -33.918861, lon: 18.4233, info: 'Salty Water - South Africa', type: 'salty'},
+            {lat: 60.472024, lon: 8.468945, info: 'Salty Water - Norway', type: 'salty'},
+            {lat: 15.870032, lon: 100.992541, info: 'Salty Water - Thailand', type: 'salty'},
+            {lat: 9.145, lon: 40.489673, info: 'Salty Water - Somalia', type: 'salty'},
+        ];
+
+        // Add markers to the map
+        markers.forEach(marker => addMarker(marker.lat, marker.lon, marker.info, marker.type));
+
+        // Function to search for a country
+        function searchCountry() {
+            var input = document.getElementById('search').value.toLowerCase();
+            markers.forEach((marker, index) => {
+                var markerPopup = L.circleMarker([marker.lat, marker.lon], { radius: 6 }).addTo(map);
+                if (marker.info.toLowerCase().includes(input)) {
+                    markerPopup.setStyle({ opacity: 1 }); // Show marker
+                } else {
+                    markerPopup.setStyle({ opacity: 0 }); // Hide marker
+                }
+            });
+        }
+
+        // Initialize the map and markers
+        hideLoading(); // Hide loading indicator when done
+    </script>
+</body>
+</html>
+
+
+
